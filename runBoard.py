@@ -66,9 +66,17 @@ while True:
 	
 	def getPath(argument):
 		switcher = {
-			0: "onDuty",
-			1: "inClass"
-			}
+		0: "onDuty",
+		1: "inClass",
+		2: "out",
+		3: "working",
+		4: "here",
+		5: "sleep",
+		6: "event",
+		7: "offCampus",
+		8: "meeting",
+		9: "brb"
+		}
 		return switcher.get(argument)
 	
 	def Draw():
