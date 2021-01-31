@@ -16,11 +16,13 @@ GxEPD2_3C<GxEPD2_750c_Z08, MAX_HEIGHT_3C(GxEPD2_750c_Z08)> display(GxEPD2_750c_Z
 
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
+#include <ESP8266HTTPClient.h>
 
-const char* ssid     = "****";
-const char* password = "******";
+const char* ssid     = "*****";
+const char* password = "*****";
 const int httpPort  = 80;
 const int httpsPort = 443;
+String lastknown = "defaultimg.bmp";
 
 // note that BMP bitmaps are drawn at physical position in physical orientation of the screen
 void showBitmapFrom_HTTP(const char* host, const char* path, const char* filename, int16_t x, int16_t y, bool with_color = true);
@@ -28,14 +30,14 @@ void showBitmapFrom_HTTP(const char* host, const char* path, const char* filenam
 // draws BMP bitmap according to set orientation
 void showBitmapFrom_HTTP_Buffered(const char* host, const char* path, const char* filename, int16_t x, int16_t y, bool with_color = true);
 
-TODO:
-- check http://whereis.maccmiles.info/boardpoll
-- get content of above page (save to var)
-- check if changed from last update (compare var==var2)
-- if no change, sleep`
-- if change, call draw with new image
-- _sleep
-- watch wifi, if disconnect reboot
+//TODO:
+//- check http://whereis.maccmiles.info/boardpoll ✓
+//- get content of above page (save to var)   ✓
+//- check if changed from last update (compare var==var2)   ✓
+//- if no change, sleep`  ✓
+//- if change, call draw with new image  ✓
+//- _sleep  
+//- watch wifi, if disconnect reboot
 
 
 
@@ -89,21 +91,42 @@ void setup()
   Serial.println(WiFi.localIP());
 
   Serial.println("Call Draw...");
-  draw();
+  draw(lastknown);
   Serial.println("Draw Done.");
 }
 
 void loop(void)
 {
+   // wait for WiFi connection
+   if((WiFi.status() == WL_CONNECTED)) {
+       HTTPClient http;
+       Serial.println("Sending Get Request to Server.......");
+       http.begin("http://whereis.maccmiles.info/boardpoll"); //HTTP URL for hosted server(local server)
+       int httpCode = http.GET();
+       if(httpCode > 0) {
+           if(httpCode == HTTP_CODE_OK) {
+               String payload = http.getString();// gives us the message received by the GET Request
+               if(payload != lastknown){
+                draw(payload);
+                lastknown = payload;
+                }
+               Serial.println(payload);// Displays the message onto the Serial Monitor
+           }
+       } else {
+           Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+       }
+       http.end();
+   }
+   delay(50000);// repeat the cycle every 5 min.
 }
 
 
 
-void draw()
+void draw(String imgdraw)
 {
   int16_t w2 = display.width() / 2;
   int16_t h2 = display.height() / 2;
-  showBitmapFrom_HTTP_Buffered("whereis.maccmiles.info", "/images/", "testfulldb.bmp", w2 - 400, h2 - 200, true);
+  showBitmapFrom_HTTP_Buffered("whereis.maccmiles.info", "/images/", imgdraw.c_str(), w2 - 400, h2 - 200, true);
   delay(2000);
 }
 
