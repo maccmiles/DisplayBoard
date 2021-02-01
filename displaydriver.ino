@@ -43,15 +43,6 @@ void showBitmapFrom_HTTP(const char* host, const char* path, const char* filenam
 // draws BMP bitmap according to set orientation
 void showBitmapFrom_HTTP_Buffered(const char* host, const char* path, const char* filename, int16_t x, int16_t y, bool with_color = true);
 
-//TODO:
-//- check http://whereis.maccmiles.info/boardpoll ✓
-//- get content of above page (save to var)   ✓
-//- check if changed from last update (compare var==var2)   ✓
-//- if no change, sleep`  ✓
-//- if change, call draw with new image  ✓
-//- _sleep  
-//- watch wifi, if disconnect reboot
-
 void WiFiConnect()
 {
   if (!WiFi.getAutoConnect() || ( WiFi.getMode() != WIFI_STA) || ((WiFi.SSID() != ssid) && String(ssid) != "........"))
@@ -123,11 +114,15 @@ void loop(void)
        if(httpCode > 0) {
            if(httpCode == HTTP_CODE_OK) {
                String payload = http.getString();// gives us the message received by the GET Request
+               Serial.println("[HTTP] GET... success, payload: " + payload);
+               payload.trim(); // we like spaces now i guess
                if(payload != lastknown){
+                Serial.println("Mismatch, Calling Draw");
                 draw(payload);
                 lastknown = payload;
+                Serial.println("Draw Routine Complete.");
                 }
-               Serial.println(payload);// Displays the message onto the Serial Monitor
+               Serial.println("OK.");
            }
        } else {
            Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
@@ -135,7 +130,8 @@ void loop(void)
        }
        http.end();
    }
-   delay(50000);// repeat the cycle every 5 min.
+   Serial.println("Sleeping...");
+   delay(300000);// repeat the cycle every 5 min.
 }
 
 
@@ -144,7 +140,9 @@ void draw(String imgdraw)
 {
   int16_t w2 = display.width() / 2;
   int16_t h2 = display.height() / 2;
+  Serial.println("Draw Start.......");
   showBitmapFrom_HTTP_Buffered("whereis.maccmiles.info", "/images/", imgdraw.c_str(), w2 - 400, h2 - 200, true);
+  Serial.println("Draw Stop.");
   delay(2000);
 }
 
