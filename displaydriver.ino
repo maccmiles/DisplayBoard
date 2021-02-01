@@ -15,8 +15,21 @@ GxEPD2_3C<GxEPD2_750c_Z08, MAX_HEIGHT_3C(GxEPD2_750c_Z08)> display(GxEPD2_750c_Z
 #endif
 
 #include <WiFiClient.h>
+#include <Esp.h>
 #include <WiFiClientSecure.h>
 #include <ESP8266HTTPClient.h>
+
+static const uint16_t input_buffer_pixels = 800; // may affect performance
+
+static const uint16_t max_row_width = 1448; // for up to 6" display 1448x1072
+static const uint16_t max_palette_pixels = 256; // for depth <= 8
+
+uint8_t input_buffer[3 * input_buffer_pixels]; // up to depth 24
+uint8_t output_row_mono_buffer[max_row_width / 8]; // buffer for at least one row of b/w bits
+uint8_t output_row_color_buffer[max_row_width / 8]; // buffer for at least one row of color bits
+uint8_t mono_palette_buffer[max_palette_pixels / 8]; // palette buffer for depth <= 8 b/w
+uint8_t color_palette_buffer[max_palette_pixels / 8]; // palette buffer for depth <= 8 c/w
+uint16_t rgb_palette_buffer[max_palette_pixels]; // palette buffer for depth <= 8 for buffered graphics, needed for 7-color display
 
 const char* ssid     = "*****";
 const char* password = "*****";
@@ -39,26 +52,8 @@ void showBitmapFrom_HTTP_Buffered(const char* host, const char* path, const char
 //- _sleep  
 //- watch wifi, if disconnect reboot
 
-
-
-
-
-void setup()
+void WiFiConnect()
 {
-  Serial.begin(115200);
-  Serial.println();
-  Serial.println("MCSDraw");
-
-  display.init(115200);
-
-#ifdef RE_INIT_NEEDED
-  WiFi.persistent(true);
-  WiFi.mode(WIFI_STA); // switch off AP
-  WiFi.setAutoConnect(true);
-  WiFi.setAutoReconnect(true);
-  WiFi.disconnect();
-#endif
-
   if (!WiFi.getAutoConnect() || ( WiFi.getMode() != WIFI_STA) || ((WiFi.SSID() != ssid) && String(ssid) != "........"))
   {
     Serial.println();
@@ -81,9 +76,31 @@ void setup()
     {
       Serial.println();
       Serial.println("WiFi connect timeout");
+      Serial.println("Rebooting and trying again");
+      ESP.restart();
       return;
     }
   }
+
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  Serial.println();
+  Serial.println("MCSDraw");
+
+  display.init(115200);
+
+#ifdef RE_INIT_NEEDED
+  WiFi.persistent(true);
+  WiFi.mode(WIFI_STA); // switch off AP
+  WiFi.setAutoConnect(true);
+  WiFi.setAutoReconnect(true);
+  WiFi.disconnect();
+#endif
+
+  WiFiConnect();
   Serial.println();
   Serial.println("WiFi connected");
 
@@ -114,6 +131,7 @@ void loop(void)
            }
        } else {
            Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+           ESP.restart();
        }
        http.end();
    }
@@ -129,20 +147,6 @@ void draw(String imgdraw)
   showBitmapFrom_HTTP_Buffered("whereis.maccmiles.info", "/images/", imgdraw.c_str(), w2 - 400, h2 - 200, true);
   delay(2000);
 }
-
-static const uint16_t input_buffer_pixels = 800; // may affect performance
-
-static const uint16_t max_row_width = 1448; // for up to 6" display 1448x1072
-static const uint16_t max_palette_pixels = 256; // for depth <= 8
-
-uint8_t input_buffer[3 * input_buffer_pixels]; // up to depth 24
-uint8_t output_row_mono_buffer[max_row_width / 8]; // buffer for at least one row of b/w bits
-uint8_t output_row_color_buffer[max_row_width / 8]; // buffer for at least one row of color bits
-uint8_t mono_palette_buffer[max_palette_pixels / 8]; // palette buffer for depth <= 8 b/w
-uint8_t color_palette_buffer[max_palette_pixels / 8]; // palette buffer for depth <= 8 c/w
-uint16_t rgb_palette_buffer[max_palette_pixels]; // palette buffer for depth <= 8 for buffered graphics, needed for 7-color display
-
-
 
 void drawBitmapFrom_HTTP_ToBuffer(const char* host, const char* path, const char* filename, int16_t x, int16_t y, bool with_color)
 {
